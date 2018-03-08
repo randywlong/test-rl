@@ -1,0 +1,76 @@
+---
+title: "Oil_spills"
+author: "Randy Long"
+date: "March 8, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+oil_spills <- read.csv("oil_spills.csv")
+
+df <- oil_spills %>%
+  filter(Accident.State == "TX" & Accident.Year < 2017) %>% 
+  group_by(Accident.Year) %>% 
+  summarise(Loss = sum(Net.Loss..Barrels.))
+
+colnames(df) <- c("Year", "Loss")
+
+ggplot(df, aes(x = Year, y = Loss))+
+  geom_col()
+
+```
+
+```{r}
+library(sf)
+library(tmap)
+library(leaflet)
+library(spatstat)
+library(maptools)
+df_loc <- oil_spills %>% 
+  filter(Accident.State == "TX" & Accident.Year== 2016) %>% 
+  select(Latitude, Longitude, Net.Loss..Barrels.)
+
+colnames(df_loc) <- c("latitude", "longitude", "net_loss")
+
+oil_sf <- st_as_sf(df_loc, coords = c("longitude", "latitude"), crs = 4326) # making the data frame have "simple features" (sf), so that coordinates are sticky - they remain with data points
+
+leaflet(oil_sf) %>% 
+  addTiles() %>% 
+  addMarkers() # we only have one variable - net loss - so we don't need to specify anything in this command
+```
+```{r}
+states <- st_read(dsn = ".", layer = "states") # loading all the states files in my current working directory
+
+tex_border <- states %>% 
+  filter(STATE_NAME == "Texas") %>% 
+  st_transform(4326)  #transforming the data here to maintain the same coordinate system
+
+
+#plot(tex_border)
+
+tm_shape(tex_border) +
+  tm_polygons() +
+  tm_shape(oil_sf) +
+  tm_dots(size = 0.3)
+```
+
+```{r}
+spills_sp <- as(oil_sf, "Spatial") #converting this data back from simple features to a spatial data fram
+spill_ppp <- as(spills_sp, "ppp") # converting this to a point pattern analysis
+
+tx_sp <- as(tex_border, "Spatial")
+
+tx_owin <- as(tx_sp, "owin")     # texas outer window, what we will use to bound our data
+
+all_ppp <- ppp(spill_ppp$x, spill_ppp$y, window = tx_owin)
+```
+
+```{r}
+plot(density(all_ppp, sigma = 0.4))
+```
+
