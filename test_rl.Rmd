@@ -105,3 +105,9 @@ ggplot(oil_lfun, aes(x = r2, y = obs))+
   geom_line(aes(x=r2, y = theo), color = "blue")
 ```
 
+
+```{r}
+
+# this is Jasmine making edits. Hopefully this will make the repository show up :D
+```
+
